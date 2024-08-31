@@ -1,0 +1,33 @@
+Creation
+Multi.createFrom().items(...)
+Multi.createFrom().publisher(...)
+Multi.createBy().repeating()
+
+Transformations	
+map()
+flatMap()
+select()
+onItem() - kind for each
+
+Combination
+merge()
+concatenate()
+combine()
+
+Erros
+onFailure()
+onFailure().retry().atMost(3);
+
+Flux
+onRequest().request(5);
+
+onOverflow().drop(); When flux exced capacity process
+
+Finalize
+onCompletion()
+onCancellation()
+
+Collection
+collectItems().asList();
+collect().with(Collectors.summingInt(Integer::intValue)); Like a reduce
+toUni()

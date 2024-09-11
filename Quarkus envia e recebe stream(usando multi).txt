@@ -1,0 +1,46 @@
+package org.acme;
+
+import customer.CustomerDTORequest;
+import customer.CustomerDTOResponse;
+import customer.MutinyCustomerServiceGrpc;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import jakarta.inject.Inject;
+import java.util.concurrent.atomic.AtomicLong;
+
+@GrpcService
+public class CustomerServiceImpl extends MutinyCustomerServiceGrpc.CustomerServiceImplBase {
+
+    private final AtomicLong idGenerator = new AtomicLong();
+
+    @Inject
+    CustomerRepository customerRepository;
+
+    @Override
+    public Multi<CustomerDTOResponse> getCustomers(Multi<CustomerDTORequest> requests) {
+        
+        return requests.onItem().transformToUniAndMerge(this::processAndSaveRequest);
+    }
+
+    // Método que processa cada CustomerDTORequest, salva no banco e retorna CustomerDTOResponse
+    private Uni<CustomerDTOResponse> processAndSaveRequest(CustomerDTORequest request) {
+        
+        CustomerModel customer = new CustomerModel();
+        customer.name = request.getName();
+        customer.lastname = request.getLastname();
+        customer.email = request.getEmail();
+        customer.age = request.getAge();
+
+       
+        long id = idGenerator.incrementAndGet();
+
+        return customerRepository.persist(customer)
+                .map(savedCustomer -> CustomerDTOResponse.newBuilder()
+                        .setName(savedCustomer.name)
+                        .setLastname(savedCustomer.lastname)
+                        .setEmail(savedCustomer.email)
+                        .setAge(savedCustomer.age)
+                        .setId(id)
+                        .build());
+    }
+}

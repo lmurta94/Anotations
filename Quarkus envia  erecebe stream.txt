@@ -1,0 +1,52 @@
+package org.example;
+
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.Multi;
+import customer.CustomerDTORequest;
+import customer.CustomerDTOResponse;
+import customer.CustomerServiceGrpc;
+import io.grpc.stub.StreamObserver;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+@GrpcService
+public class CustomerServiceImpl extends CustomerServiceGrpc.CustomerServiceImplBase {
+
+    private final AtomicLong idGenerator = new AtomicLong();
+
+    @Override
+    public StreamObserver<CustomerDTORequest> getCustomers(StreamObserver<CustomerDTOResponse> responseObserver) {
+        return new StreamObserver<>() {
+
+            @Override
+            public void onNext(CustomerDTORequest request) {
+                // Gerando um ID para o cliente
+                long id = idGenerator.incrementAndGet();
+
+                // Cria a resposta com base no pedido recebido
+                CustomerDTOResponse response = CustomerDTOResponse.newBuilder()
+                        .setName(request.getName())
+                        .setLastname(request.getLastname())
+                        .setEmail(request.getEmail())
+                        .setAge(request.getAge())
+                        .setId(id) // Simulação de ID gerado
+                        .build();
+
+                // Envia a resposta de volta
+                responseObserver.onNext(response);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                // Conclui o stream
+                responseObserver.onCompleted();
+            }
+        };
+    }
+}

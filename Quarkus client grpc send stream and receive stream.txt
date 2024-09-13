@@ -1,0 +1,145 @@
+package org.acme;
+
+import customer.CustomerDTORequest;
+import customer.CustomerDTOResponse;
+import customer.CustomerServiceGrpc;
+import io.quarkus.grpc.GrpcService;
+import io.grpc.stub.StreamObserver;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+@GrpcService
+public class CustomerServiceImpl extends CustomerServiceGrpc.CustomerServiceImplBase {
+
+    // Contador para gerar IDs simulados
+    private AtomicLong idCounter = new AtomicLong();
+
+    @Override
+    public StreamObserver<CustomerDTORequest> addCustomer(StreamObserver<CustomerDTOResponse> responseObserver) {
+        return new StreamObserver<>() {
+            @Override
+            public void onNext(CustomerDTORequest request) {
+                // Para cada cliente enviado, responde com um CustomerDTOResponse
+                CustomerDTOResponse response = CustomerDTOResponse.newBuilder()
+                        .setName(request.getName())
+                        .setLastname(request.getLastname())
+                        .setEmail(request.getEmail())
+                        .setAge(request.getAge())
+                        .setId(idCounter.incrementAndGet()) // Gerar um ID único
+                        .build();
+
+                // Enviar a resposta para o cliente
+                responseObserver.onNext(response);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.err.println("Erro no stream: " + t.getMessage());
+            }
+
+            @Override
+            public void onCompleted() {
+                // Finalizar o stream
+                responseObserver.onCompleted();
+            }
+        };
+    }
+}
+
+
+
+
+
+--- Client
+
+package org.acme;
+
+import customer.CustomerDTORequest;
+import customer.CustomerDTOResponse;
+import customer.CustomerServiceGrpc;
+import io.grpc.stub.StreamObserver;
+import io.quarkus.grpc.runtime.annotations.GrpcService;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import java.util.List;
+
+@ApplicationScoped
+public class CustomerGrpcService {
+
+    @Inject
+    @GrpcService("customer-service")
+    CustomerServiceGrpc.CustomerServiceStub customerServiceStub;
+
+    // Método que envia uma lista de clientes e processa as respostas
+    public void addCustomers(List<CustomerDTORequest> customers) {
+        StreamObserver<CustomerDTORequest> requestObserver = customerServiceStub.addCustomer(new StreamObserver<CustomerDTOResponse>() {
+            @Override
+            public void onNext(CustomerDTOResponse response) {
+                // Receber cada resposta do servidor
+                System.out.println("Received response: " + response.getName() + " ID: " + response.getId());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.err.println("Erro: " + t.getMessage());
+            }
+
+            @Override
+            public void onCompleted() {
+                // O servidor finalizou a transmissão
+                System.out.println("Stream completed");
+            }
+        });
+
+        // Enviar todos os clientes para o servidor
+        for (CustomerDTORequest customer : customers) {
+            requestObserver.onNext(customer);
+        }
+
+        // Finalizar a transmissão
+        requestObserver.onCompleted();
+    }
+}
+
+
+
+---Rest client
+
+package org.acme;
+
+import customer.CustomerDTORequest;
+
+import javax.inject.Inject;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import java.util.Arrays;
+import java.util.List;
+
+@Path("/customer-client")
+public class CustomerClient {
+
+    @Inject
+    CustomerGrpcService customerGrpcService;
+
+    @GET
+    @Path("/add-customers")
+    @Produces(MediaType.TEXT_PLAIN)
+    public String addCustomers() {
+        // Criação de uma lista de clientes para enviar via stream
+        List<CustomerDTORequest> customers = Arrays.asList(
+                CustomerDTORequest.newBuilder().setName("John").setLastname("Doe").setEmail("john@example.com").setAge(30).build(),
+                CustomerDTORequest.newBuilder().setName("Jane").setLastname("Smith").setEmail("jane@example.com").setAge(25).build()
+        );
+
+        // Chamar o serviço gRPC
+        customerGrpcService.addCustomers(customers);
+
+        return "Customers sent to gRPC server!";
+    }
+}
+
+
+

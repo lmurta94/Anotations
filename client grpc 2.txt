@@ -1,0 +1,97 @@
+import io.quarkus.grpc.GrpcClient;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
+import io.smallrye.mutiny.streams.MultiCollector;
+import io.smallrye.mutiny.subscription.Cancellable;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import your.package.name.CustomerRequestDTO;
+import your.package.name.CustomerResponseDTO;
+import your.package.name.CustomerServiceGrpc;
+
+import javax.enterprise.context.ApplicationScoped;
+import java.util.List;
+
+@ApplicationScoped
+public class CustomerGrpcClient {
+
+    // Injetando o stub gRPC usando a anotação @GrpcClient
+    @GrpcClient("customer-service")
+    CustomerServiceGrpc.CustomerServiceStub customerService;
+
+    public Uni<Void> addCustomers() {
+        UniAssertSubscriber<Void> subscriber = new UniAssertSubscriber<>();
+
+        // Criar um cliente de streaming gRPC
+        var requestObserver = customerService.addCustomers(new StreamObserver<CustomerResponseDTO>() {
+            @Override
+            public void onNext(CustomerResponseDTO response) {
+                System.out.println("Recebido: ID = " + response.getId() + 
+                                   ", Nome = " + response.getName() +
+                                   ", Sobrenome = " + response.getLastName() +
+                                   ", Idade = " + response.getAge() + 
+                                   ", Email = " + response.getEmail());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.err.println("Erro: " + t.getMessage());
+                subscriber.fail(t);
+            }
+
+            @Override
+            public void onCompleted() {
+                System.out.println("Streaming completado.");
+                subscriber.complete();
+            }
+        });
+
+        // Enviando múltiplos clientes no stream
+        requestObserver.onNext(CustomerRequestDTO.newBuilder()
+            .setName("João")
+            .setLastName("Silva")
+            .setAge(25)
+            .setEmail("joao.silva@example.com")
+            .build());
+
+        requestObserver.onNext(CustomerRequestDTO.newBuilder()
+            .setName("Maria")
+            .setLastName("Oliveira")
+            .setAge(30)
+            .setEmail("maria.oliveira@example.com")
+            .build());
+
+        // Finalizar o stream
+        requestObserver.onCompleted();
+
+        return subscriber.awaitCompletion().assertCompleted();
+    }
+}
+
+
+
+import javax.inject.Inject;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.core.Response;
+
+@Path("/customers")
+public class CustomerResource {
+
+    @Inject
+    CustomerGrpcClient customerGrpcClient;
+
+    @GET
+    @Path("/stream")
+    public Response streamCustomers() {
+        customerGrpcClient.addCustomers().subscribe().with(
+            item -> System.out.println("Processado"),
+            failure -> System.err.println("Erro: " + failure)
+        );
+
+        return Response.ok().build();
+    }
+}
+
+
+quarkus.grpc.clients.customer-service.host=localhost
+quarkus.grpc.clients.customer-service.port=50051

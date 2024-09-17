@@ -1,0 +1,52 @@
+#quarkus.redis.hosts=redis://localhost:6379
+quarkus.cache.redis.default-ttl=60S  # Tempo de vida padrão de 60 segundos
+
+ <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-redis-client</artifactId>
+        </dependency>
+
+
+
+
+package org.acme.redis;
+
+import io.quarkus.redis.client.RedisClient;
+import io.vertx.redis.client.Response;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+import java.util.Arrays;
+
+@ApplicationScoped
+public class RedisService {
+
+    @Inject
+    RedisClient redisClient;
+
+    // Método para definir um valor sem TTL
+    public void set(String key, String value) {
+        redisClient.send(Arrays.asList("SET", key, value));
+    }
+
+    // Método para definir um valor com TTL
+    public void setWithTTL(String key, String value, long ttlInSeconds) {
+        redisClient.send(Arrays.asList("SETEX", key, String.valueOf(ttlInSeconds), value));
+    }
+
+    // Método para obter um valor
+    public String get(String key) {
+        Response response = redisClient.send(Arrays.asList("GET", key));
+        return response != null ? response.toString() : null;
+    }
+
+    // Método para atualizar um valor (usa SET com sobrescrição)
+    public void update(String key, String newValue) {
+        set(key, newValue);
+    }
+
+    // Método para deletar um valor
+    public void delete(String key) {
+        redisClient.send(Arrays.asList("DEL", key));
+    }
+}

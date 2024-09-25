@@ -1,0 +1,142 @@
+package com.example.grpc.client;
+
+import com.example.grpc.*;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.StreamObserver;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class CustomerService {
+
+    private final CustomerServiceGrpc.CustomerServiceStub asyncStub;
+
+    public CustomerService() {
+        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 9090)
+                .usePlaintext()
+                .build();
+
+        asyncStub = CustomerServiceGrpc.newStub(channel);
+    }
+
+    // Método para salvar múltiplos clientes via stream
+    public void saveCustomers(List<CustomerModel> customers) {
+        StreamObserver<CustomerModel> requestObserver = asyncStub.saveCustomers(new StreamObserver<CustomerModel>() {
+            @Override
+            public void onNext(CustomerModel value) {
+                System.out.println("Cliente salvo: " + value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                System.out.println("Todos os clientes foram salvos.");
+            }
+        });
+
+        for (CustomerModel customer : customers) {
+            requestObserver.onNext(customer);
+        }
+
+        requestObserver.onCompleted();
+    }
+
+    // Método para obter todos os clientes via stream
+    public void getAllCustomers() {
+        asyncStub.getAllCustomers(Empty.newBuilder().build(), new StreamObserver<CustomerModel>() {
+            @Override
+            public void onNext(CustomerModel value) {
+                System.out.println("Cliente encontrado: " + value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                System.out.println("Todos os clientes foram recebidos.");
+            }
+        });
+    }
+
+    // Método para obter um cliente por ID
+    public void getCustomerById(int id) {
+        CustomerId request = CustomerId.newBuilder().setId(id).build();
+        asyncStub.getCustomerById(request, new StreamObserver<CustomerModel>() {
+            @Override
+            public void onNext(CustomerModel value) {
+                System.out.println("Cliente encontrado: " + value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                System.out.println("Consulta por cliente ID finalizada.");
+            }
+        });
+    }
+
+    // Método para atualizar múltiplos clientes via stream
+    public void updateCustomers(List<CustomerModel> customers) {
+        StreamObserver<CustomerModel> requestObserver = asyncStub.putCustomers(new StreamObserver<CustomerModel>() {
+            @Override
+            public void onNext(CustomerModel value) {
+                System.out.println("Cliente atualizado: " + value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                System.out.println("Todos os clientes foram atualizados.");
+            }
+        });
+
+        for (CustomerModel customer : customers) {
+            requestObserver.onNext(customer);
+        }
+
+        requestObserver.onCompleted();
+    }
+
+    // Método para deletar múltiplos clientes via stream de IDs
+    public void deleteCustomers(List<Integer> ids) {
+        StreamObserver<CustomerId> requestObserver = asyncStub.deleteById(new StreamObserver<Empty>() {
+            @Override
+            public void onNext(Empty value) {
+                System.out.println("Clientes deletados.");
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                System.out.println("Todos os clientes foram deletados.");
+            }
+        });
+
+        for (Integer id : ids) {
+            requestObserver.onNext(CustomerId.newBuilder().setId(id).build());
+        }
+
+        requestObserver.onCompleted();
+    }
+}

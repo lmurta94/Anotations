@@ -1,0 +1,65 @@
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.redis.datasource.codecs.Codec;
+
+@ApplicationScoped
+public class CustomerCodec implements Codec {
+
+    @Override
+    public boolean canHandle(Type clazz) {
+        // Verifica se pode lidar com uma lista de CustomerModel ou um único CustomerModel
+        return clazz.equals(CustomerModel.class) || clazz.equals(List.class);
+    }
+
+    @Override
+    public byte[] encode(Object item) {
+        if (item instanceof List<?>) {
+            // Serializa uma lista de CustomerModel
+            List<CustomerModel> customers = (List<CustomerModel>) item;
+            StringBuilder sb = new StringBuilder();
+            for (CustomerModel customer : customers) {
+                sb.append(encodeSingleCustomer(customer)).append("|"); // Usa um separador entre clientes
+            }
+            return sb.toString().getBytes(StandardCharsets.UTF_8);
+        } else {
+            // Serializa um único CustomerModel
+            return encodeSingleCustomer((CustomerModel) item).getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
+    @Override
+    public Object decode(byte[] item) {
+        // Decodifica o byte array para string e depois separa os elementos por "|"
+        var value = new String(item, StandardCharsets.UTF_8);
+        var segments = value.split("\\|");
+
+        List<CustomerModel> customers = new ArrayList<>();
+        for (String segment : segments) {
+            customers.add(decodeSingleCustomer(segment));
+        }
+
+        return customers;
+    }
+
+    private String encodeSingleCustomer(CustomerModel customer) {
+        // Concatena os campos do CustomerModel com ";"
+        return customer.getId() + ";" + customer.getName() + ";" +
+               customer.getLastName() + ";" + customer.getAge() + ";" + customer.getEmail();
+    }
+
+    private CustomerModel decodeSingleCustomer(String data) {
+        // Separa os campos por ";" e cria um CustomerModel
+        var segments = data.split(";");
+        return new CustomerModel(
+                Long.parseLong(segments[0]), // id
+                segments[1],                 // first name
+                segments[2],                 // last name
+                Integer.parseInt(segments[3]),// age
+                segments[4]                  // email
+        );
+    }
+}

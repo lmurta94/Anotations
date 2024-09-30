@@ -1,40 +1,59 @@
-syntax = "proto3";
+@RegisterRestClient(configKey = "cognito-api")
+public interface CognitoTokenClient {
 
-option java_multiple_files = true;
-option java_package = "com.example.grpc";
-option java_outer_classname = "CustomerProto";
-
-// Serviço gRPC com os métodos solicitados
-service CustomerService {
-    // Salvar múltiplos clientes via stream
-    rpc SaveCustomers (stream CustomerModel) returns (stream CustomerModel);
-    
-    // Obter todos os clientes
-    rpc GetAllCustomers (Empty) returns (stream CustomerModel);
-    
-    // Obter um cliente por ID
-    rpc GetCustomerById (CustomerId) returns (CustomerModel);
-    
-    // Atualizar múltiplos clientes via stream
-    rpc PutCustomers (stream CustomerModel) returns (stream CustomerModel);
-    
-    // Deletar múltiplos clientes via stream de IDs
-    rpc DeleteById (stream CustomerId) returns (Empty);
+    @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @javax.ws.rs.Path("/oauth2/token")
+    Response getToken(
+        @FormParam("grant_type") String grantType,
+        @FormParam("client_id") String clientId,
+        @FormParam("redirect_uri") String redirectUri,
+        @FormParam("code") String code,
+        @FormParam("scope") String scope
+    );
 }
 
-// Modelo de cliente
-message CustomerModel {
-    int32 id = 1;
-    string name = 2;
-    string lastName = 3;
-    string email = 4;
-    int32 age = 5;
+
+@ApplicationScoped
+public class CognitoAuthService {
+
+    @Inject
+    @RestClient
+    CognitoTokenClient cognitoTokenClient;
+
+    public String exchangeAuthorizationCodeForToken(String authorizationCode, String redirectUri) {
+        String clientId = "seu-client-id";  // Substitua pelo seu Client ID
+        String grantType = "authorization_code";
+        String scope = "openid profile";  // Defina os escopos necessários
+
+        // Fazer a chamada ao token endpoint com o authorization code
+        Response response = cognitoTokenClient.getToken(grantType, clientId, redirectUri, authorizationCode, scope);
+
+        if (response.getStatus() == 200) {
+            String responseBody = response.readEntity(String.class);
+            // Aqui você pode processar o JSON e extrair o token
+            return responseBody;
+        } else {
+            throw new RuntimeException("Erro ao trocar código por token: " + response.getStatusInfo().getReasonPhrase());
+        }
+    }
 }
 
-// Mensagem para enviar um ID de cliente
-message CustomerId {
-    int32 id = 1;
-}
 
-// Mensagem vazia usada como resposta para operações sem retorno específico
-message Empty {}
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.QueryParam;
+import javax.inject.Inject;
+
+@Path("/callback")
+public class AuthResource {
+
+    @Inject
+    CognitoAuthService authService;
+
+    @GET
+    public String handleAuthCallback(@QueryParam("code") String code, @QueryParam("state") String state) {
+        String redirectUri = "http://localhost:8080/callback";  // O mesmo redirect_uri usado no authorize endpoint
+        return authService.exchangeAuthorizationCodeForToken(code, redirectUri);
+    }
+}

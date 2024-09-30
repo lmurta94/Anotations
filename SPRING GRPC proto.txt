@@ -57,3 +57,6 @@ public class AuthResource {
         return authService.exchangeAuthorizationCodeForToken(code, redirectUri);
     }
 }
+
+https://<seu-pool-id>.auth.<regiao>.amazonaws.com/oauth2/authorize?response_type=code&client_id=seu-client-id&redirect_uri=http://localhost:8080/callback&scope=openid profile
+

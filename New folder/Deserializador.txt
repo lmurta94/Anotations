@@ -1,6 +1,95 @@
-public static <T> List<T> jsonArrayToList(String json, Class<T> elementClass) throws IOException {
-    ObjectMapper objectMapper = new ObjectMapper();
-    CollectionType listType = 
-      objectMapper.getTypeFactory().constructCollectionType(ArrayList.class, elementClass);
-    return objectMapper.readValue(json, listType);
+<dependencies>
+    <!-- Quarkus REST Client -->
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-rest-client</artifactId>
+    </dependency>
+
+    <!-- Eclipse MicroProfile REST Client API -->
+    <dependency>
+        <groupId>org.eclipse.microprofile.rest.client</groupId>
+        <artifactId>microprofile-rest-client-api</artifactId>
+    </dependency>
+</dependencies>
+
+
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import javax.ws.rs.POST;
+import javax.ws.rs.FormParam;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+@RegisterRestClient(configKey = "cognito-api")
+public interface CognitoRestClient {
+
+    @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    Response login(
+            @HeaderParam("Authorization") String basicAuth,  // Para o client_id/client_secret
+            @FormParam("grant_type") String grantType,
+            @FormParam("client_id") String clientId,
+            @FormParam("username") String username,
+            @FormParam("password") String password,
+            @FormParam("scope") String scope
+    );
 }
+
+
+
+public class TokenResponse {
+    public String access_token;
+    public String id_token;
+    public String refresh_token;
+    public String token_type;
+    public int expires_in;
+
+    @Override
+    public String toString() {
+        return "TokenResponse{" +
+                "access_token='" + access_token + '\'' +
+                ", id_token='" + id_token + '\'' +
+                ", refresh_token='" + refresh_token + '\'' +
+                ", token_type='" + token_type + '\'' +
+                ", expires_in=" + expires_in +
+                '}';
+    }
+}
+
+
+# URL base da API do Cognito
+cognito-api/mp-rest/url=https://<your_cognito_domain>
+
+
+
+import javax.inject.Inject;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+
+@Path("/auth")
+public class AuthResource {
+
+    @Inject
+    CognitoService cognitoService;
+
+    @GET
+    @Path("/login")
+    @Produces(MediaType.APPLICATION_JSON)
+    public TokenResponse login() {
+        // Substitua pelos valores de teste
+        String username = "example_user";
+        String password = "example_password";
+
+        try {
+            TokenResponse tokenResponse = cognitoService.login(username, password);
+            return tokenResponse;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Erro ao autenticar usuário.");
+        }
+    }
+}
+

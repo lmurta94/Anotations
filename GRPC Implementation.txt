@@ -1,52 +1,54 @@
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProvider;
-import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProviderClientBuilder;
-import com.amazonaws.services.cognitoidp.model.AdminInitiateAuthRequest;
-import com.amazonaws.services.cognitoidp.model.AdminInitiateAuthResult;
-import com.amazonaws.services.cognitoidp.model.AuthFlowType;
-import com.amazonaws.services.cognitoidp.model.AdminInitiateAuthRequest;
-import com.amazonaws.services.cognitoidp.model.AdminInitiateAuthResult;
+import software.amazon.awssdk.auth.token.jwt.Jwt;
+import software.amazon.awssdk.auth.token.jwt.JwtException;
+import software.amazon.awssdk.auth.token.jwt.JwtValidator;
+import software.amazon.awssdk.auth.token.jwt.jwks.JwksProvider;
+import software.amazon.awssdk.auth.token.jwt.jwks.JwksProviders;
+import software.amazon.awssdk.auth.token.jwt.jwks.cache.JwksCache;
+import software.amazon.awssdk.auth.token.jwt.jwks.cache.JwksCaches;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class CognitoAuthExample {
+public class CognitoJwtValidatorExample {
+
     public static void main(String[] args) {
-        // 1. Configurações Cognito
-        String clientId = "seu-client-id";
-        String userPoolId = "seu-user-pool-id";
-        String accessKey = "sua-aws-access-key";  // Opcional se estiver usando credenciais configuradas no ambiente
-        String secretKey = "sua-aws-secret-key";  // Opcional se estiver usando credenciais configuradas no ambiente
-
-        // 2. Credenciais AWS (opcional se estiver utilizando credenciais configuradas)
-        BasicAWSCredentials awsCreds = new BasicAWSCredentials(accessKey, secretKey);
-
-        // 3. Inicializar o cliente Cognito
-        AWSCognitoIdentityProvider cognitoClient = AWSCognitoIdentityProviderClientBuilder.standard()
-                .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
-                .withRegion(Regions.US_EAST_1)  // Defina a região apropriada
+        String token = "seu_token_jwt_aqui";
+        String poolId = "seu_pool_id";  // Ex: us-west-2_xxxxxxxxx
+        String region = "sua_regiao";   // Ex: us-west-2
+        
+        try {
+            // 1. Configura o provider para baixar automaticamente as chaves públicas do Cognito
+            JwksProvider jwksProvider = JwksProviders.cognito(region, poolId);
+            JwksCache jwksCache = JwksCaches.createDefault(jwksProvider);
+            
+            // 2. Cria o validador de JWT
+            JwtValidator jwtValidator = JwtValidator.builder()
+                .jwksCache(jwksCache)
+                .expectedIssuer("https://cognito-idp." + region + ".amazonaws.com/" + poolId)
                 .build();
+            
+            // 3. Valida o JWT
+            Jwt jwt = jwtValidator.validate(token);
+            System.out.println("Token válido!");
 
-        // 4. Parâmetros de autenticação
-        Map<String, String> authParams = new HashMap<>();
-        authParams.put("USERNAME", "seu-username");
-        authParams.put("PASSWORD", "sua-password");
+            // 4. Acessar as claims (informações contidas no token)
+            Map<String, Object> claims = jwt.claims();
+            
+            // Exemplo: Verificar se o usuário pertence a algum grupo específico (Role)
+            List<String> roles = (List<String>) claims.get("cognito:groups");
+            if (roles != null && roles.contains("Admin")) {
+                System.out.println("Usuário possui role de Admin");
+            } else {
+                System.out.println("Usuário não possui a role necessária");
+            }
 
-        // 5. Construindo a solicitação de autenticação
-        AdminInitiateAuthRequest authRequest = new AdminInitiateAuthRequest()
-                .withUserPoolId(userPoolId)
-                .withClientId(clientId)
-                .withAuthFlow(AuthFlowType.ADMIN_NO_SRP_AUTH) // Fluxo sem SRP
-                .withAuthParameters(authParams);
-
-        // 6. Fazendo a chamada para autenticar o usuário
-        AdminInitiateAuthResult authResult = cognitoClient.adminInitiateAuth(authRequest);
-
-        // 7. Exibindo os tokens de autenticação
-        System.out.println("ID Token: " + authResult.getAuthenticationResult().getIdToken());
-        System.out.println("Access Token: " + authResult.getAuthenticationResult().getAccessToken());
-        System.out.println("Refresh Token: " + authResult.getAuthenticationResult().getRefreshToken());
+            // Outros exemplos de acesso às claims
+            System.out.println("Usuário: " + claims.get("sub")); // ID do usuário
+            System.out.println("Email: " + claims.get("email")); // Email do usuário
+            
+        } catch (JwtException e) {
+            // Token inválido ou erro na validação
+            System.out.println("Erro ao validar o token: " + e.getMessage());
+        }
     }
 }

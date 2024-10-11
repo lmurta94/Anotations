@@ -1,1 +1,131 @@
-https://github.com/spring-tips/grpc
+import io.quarkus.hibernate.orm.panache.Panache;
+import javax.transaction.Transactional;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.Path;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Response;
+import java.util.List;
+import java.util.Arrays;
+
+@Path("/items")
+public class ItemResource {
+
+    // Para excluir passando ids separados por vírgula (ex: /items/delete-comma?ids=1,2,3)
+    @DELETE
+    @Path("/delete-comma")
+    @Transactional
+    public Response deleteItemsCommaSeparated(@QueryParam("ids") String ids) {
+        // Convertendo a string separada por vírgulas em uma lista de IDs
+        List<Long> idList = Arrays.asList(ids.split(","))
+                                   .stream()
+                                   .map(Long::parseLong)
+                                   .toList();
+        // Excluir com Panache
+        deleteItems(idList);
+        return Response.ok("Itens deletados com sucesso").build();
+    }
+
+    // Para excluir passando ids repetidos como query param (ex: /items/delete-query?ids=1&ids=2&ids=3)
+    @DELETE
+    @Path("/delete-query")
+    @Transactional
+    public Response deleteItemsMultipleQueryParams(@QueryParam("ids") List<Long> ids) {
+        // Excluir com Panache
+        deleteItems(ids);
+        return Response.ok("Itens deletados com sucesso").build();
+    }
+
+    // Função para realizar a exclusão com Panache
+    private void deleteItems(List<Long> ids) {
+        // Query nativa para excluir os itens pelos IDs
+        Panache.getEntityManager().createQuery("DELETE FROM Item WHERE id IN :ids")
+                                  .setParameter("ids", ids)
+                                  .executeUpdate();
+    }
+}
+
+Chamadas
+DELETE /items/delete-comma?ids=1,2,3
+
+DELETE /items/delete-query?ids=1&ids=2&ids=3
+
+
+
+
+spec
+
+
+openapi: 3.0.0
+info:
+  title: API de Itens
+  description: API para gerenciar a exclusão de itens através de query params com Quarkus e Panache.
+  version: 1.0.0
+paths:
+  /items/delete-comma:
+    delete:
+      summary: Deleta múltiplos itens passando IDs separados por vírgula
+      description: Exclui itens do banco de dados a partir de uma lista de IDs, onde os IDs são passados em um único query param, separados por vírgulas.
+      operationId: deleteItemsCommaSeparated
+      tags:
+        - Items
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Lista de IDs para excluir, separados por vírgula.
+          schema:
+            type: string
+            example: "1,2,3"
+      responses:
+        '200':
+          description: Itens deletados com sucesso
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Itens deletados com sucesso"
+        '400':
+          description: Erro ao deletar os itens
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Erro ao processar solicitação"
+
+  /items/delete-query:
+    delete:
+      summary: Deleta múltiplos itens passando IDs como parâmetros de query separados
+      description: Exclui itens do banco de dados passando vários parâmetros de query com o mesmo nome `ids`.
+      operationId: deleteItemsMultipleQueryParams
+      tags:
+        - Items
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Lista de IDs para excluir, passados como múltiplos parâmetros de query (ids=1&ids=2&ids=3).
+          schema:
+            type: array
+            items:
+              type: integer
+            example: [1, 2, 3]
+          style: form
+          explode: true  # Cada ID é passado separadamente (ex: ids=1&ids=2&ids=3)
+      responses:
+        '200':
+          description: Itens deletados com sucesso
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Itens deletados com sucesso"
+        '400':
+          description: Erro ao deletar os itens
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Erro ao processar solicitação"
+
+
+

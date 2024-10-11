@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import io.quarkus.hibernate.orm.panache.Panache;
 import javax.transaction.Transactional;
 import javax.ws.rs.DELETE;
@@ -129,3 +130,135 @@ paths:
 
 
 
+=======
+<dependencies>
+    <!-- Quarkus RESTEasy Reactive Client -->
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-rest-client-reactive</artifactId>
+    </dependency>
+
+    <!-- Quarkus JSON-B for JSON processing -->
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-resteasy-reactive-jsonb</artifactId>
+    </dependency>
+</dependencies>
+
+
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import javax.ws.rs.POST;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.FormParam;
+import javax.ws.rs.core.Response;
+
+@RegisterRestClient(configKey = "cognito-api")
+public interface CognitoClient {
+
+    @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @javax.ws.rs.Path("/oauth2/token")
+    Response authenticate(
+        @FormParam("grant_type") String grantType,
+        @FormParam("client_id") String clientId,
+        @FormParam("client_secret") String clientSecret,
+        @FormParam("username") String username,
+        @FormParam("password") String password
+    );
+}
+
+
+cognito-api/mp-rest/url=https://<seu-pool-id>.auth.<regiao>.amazonaws.com
+
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+import javax.ws.rs.core.Response;
+
+@ApplicationScoped
+public class CognitoAuthService {
+
+    @Inject
+    @RestClient
+    CognitoClient cognitoClient;
+
+    public String authenticateUser(String username, String password) {
+        // Configurações do cliente Cognito
+        String clientId = "seu-client-id";
+        String clientSecret = "seu-client-secret";
+        String grantType = "password";
+
+        // Chamar o cliente REST para autenticar o usuário
+        Response response = cognitoClient.authenticate(grantType, clientId, clientSecret, username, password);
+
+        if (response.getStatus() == 200) {
+            // Se a resposta for 200 OK, podemos retornar os tokens
+            return response.readEntity(String.class);
+        } else {
+            // Em caso de erro, retornar a mensagem de erro
+            return "Autenticação falhou: " + response.getStatusInfo().getReasonPhrase();
+        }
+    }
+}
+
+
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.FormParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import javax.inject.Inject;
+
+@Path("/auth")
+public class AuthResource {
+
+    @Inject
+    CognitoAuthService authService;
+
+    @POST
+    @Path("/login")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String login(@FormParam("username") String username, @FormParam("password") String password) {
+        return authService.authenticateUser(username, password);
+    }
+}
+
+
+myapp.cognito.client-id=meu-client-id
+myapp.cognito.client-secret=meu-client-secret
+myapp.cognito.region=us-east-1
+
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import javax.enterprise.context.ApplicationScoped;
+
+@ApplicationScoped
+public class CognitoConfig {
+
+    // Injetar o valor de 'myapp.cognito.client-id'
+    @ConfigProperty(name = "myapp.cognito.client-id")
+    String clientId;
+
+    // Injetar o valor de 'myapp.cognito.client-secret'
+    @ConfigProperty(name = "myapp.cognito.client-secret")
+    String clientSecret;
+
+    // Injetar o valor de 'myapp.cognito.region' com valor padrão 'us-east-1'
+    @ConfigProperty(name = "myapp.cognito.region", defaultValue = "us-east-1")
+    String region;
+
+    public void printConfig() {
+        System.out.println("Client ID: " + clientId);
+        System.out.println("Client Secret: " + clientSecret);
+        System.out.println("Region: " + region);
+    }
+
+    // Métodos adicionais que utilizam essas propriedades...
+}
+public String getClientId() {
+        String clientId = ConfigProvider.getConfig().getValue("myapp.cognito.client-id", String.class);
+        return clientId;
+    }
+>>>>>>> 1974f9d2abbf31c6c02575bb3f0a90cd121d86b0

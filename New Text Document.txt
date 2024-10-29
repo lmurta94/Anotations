@@ -1,264 +1,142 @@
-<<<<<<< HEAD
-import io.quarkus.hibernate.orm.panache.Panache;
-import javax.transaction.Transactional;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.Path;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Response;
-import java.util.List;
-import java.util.Arrays;
+import io.quarkus.test.junit.QuarkusTest;
+import io.grpc.*;
+import org.jboss.logging.Logger;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-@Path("/items")
-public class ItemResource {
+import java.time.Duration;
+import java.time.Instant;
 
-    // Para excluir passando ids separados por vírgula (ex: /items/delete-comma?ids=1,2,3)
-    @DELETE
-    @Path("/delete-comma")
-    @Transactional
-    public Response deleteItemsCommaSeparated(@QueryParam("ids") String ids) {
-        // Convertendo a string separada por vírgulas em uma lista de IDs
-        List<Long> idList = Arrays.asList(ids.split(","))
-                                   .stream()
-                                   .map(Long::parseLong)
-                                   .toList();
-        // Excluir com Panache
-        deleteItems(idList);
-        return Response.ok("Itens deletados com sucesso").build();
-    }
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 
-    // Para excluir passando ids repetidos como query param (ex: /items/delete-query?ids=1&ids=2&ids=3)
-    @DELETE
-    @Path("/delete-query")
-    @Transactional
-    public Response deleteItemsMultipleQueryParams(@QueryParam("ids") List<Long> ids) {
-        // Excluir com Panache
-        deleteItems(ids);
-        return Response.ok("Itens deletados com sucesso").build();
-    }
+@QuarkusTest
+@ExtendWith(MockitoExtension.class)
+public class GrpcInterceptorTest {
 
-    // Função para realizar a exclusão com Panache
-    private void deleteItems(List<Long> ids) {
-        // Query nativa para excluir os itens pelos IDs
-        Panache.getEntityManager().createQuery("DELETE FROM Item WHERE id IN :ids")
-                                  .setParameter("ids", ids)
-                                  .executeUpdate();
-    }
-}
+    @InjectMocks
+    GrpcInterceptor grpcInterceptor;
 
-Chamadas
-DELETE /items/delete-comma?ids=1,2,3
+    @Mock
+    ServerCall<String, String> serverCall;
 
-DELETE /items/delete-query?ids=1&ids=2&ids=3
+    @Mock
+    Metadata metadata;
 
+    @Mock
+    ServerCallHandler<String, String> serverCallHandler;
 
+    @Mock
+    Logger LOGGER;
 
+    @Test
+    public void testInterceptorLogsRequestAndResponse() {
+        // Configura mocks
+        when(serverCall.getMethodDescriptor()).thenReturn(MethodDescriptor.newBuilder()
+                .setFullMethodName("TestService/TestMethod")
+                .setType(MethodDescriptor.MethodType.UNARY)
+                .build());
+        when(serverCall.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)).thenReturn("127.0.0.1");
 
-spec
+        ArgumentCaptor<String> logCaptor = ArgumentCaptor.forClass(String.class);
+        doNothing().when(LOGGER).infof(logCaptor.capture(), any());
 
+        // Captura o horário inicial para medir o tempo de execução
+        Instant startTime = Instant.now();
 
-openapi: 3.0.0
-info:
-  title: API de Itens
-  description: API para gerenciar a exclusão de itens através de query params com Quarkus e Panache.
-  version: 1.0.0
-paths:
-  /items/delete-comma:
-    delete:
-      summary: Deleta múltiplos itens passando IDs separados por vírgula
-      description: Exclui itens do banco de dados a partir de uma lista de IDs, onde os IDs são passados em um único query param, separados por vírgulas.
-      operationId: deleteItemsCommaSeparated
-      tags:
-        - Items
-      parameters:
-        - name: ids
-          in: query
-          required: true
-          description: Lista de IDs para excluir, separados por vírgula.
-          schema:
-            type: string
-            example: "1,2,3"
-      responses:
-        '200':
-          description: Itens deletados com sucesso
-          content:
-            application/json:
-              schema:
-                type: string
-                example: "Itens deletados com sucesso"
-        '400':
-          description: Erro ao deletar os itens
-          content:
-            application/json:
-              schema:
-                type: string
-                example: "Erro ao processar solicitação"
+        // Executa o interceptor
+        grpcInterceptor.interceptCall(serverCall, metadata, serverCallHandler);
 
-  /items/delete-query:
-    delete:
-      summary: Deleta múltiplos itens passando IDs como parâmetros de query separados
-      description: Exclui itens do banco de dados passando vários parâmetros de query com o mesmo nome `ids`.
-      operationId: deleteItemsMultipleQueryParams
-      tags:
-        - Items
-      parameters:
-        - name: ids
-          in: query
-          required: true
-          description: Lista de IDs para excluir, passados como múltiplos parâmetros de query (ids=1&ids=2&ids=3).
-          schema:
-            type: array
-            items:
-              type: integer
-            example: [1, 2, 3]
-          style: form
-          explode: true  # Cada ID é passado separadamente (ex: ids=1&ids=2&ids=3)
-      responses:
-        '200':
-          description: Itens deletados com sucesso
-          content:
-            application/json:
-              schema:
-                type: string
-                example: "Itens deletados com sucesso"
-        '400':
-          description: Erro ao deletar os itens
-          content:
-            application/json:
-              schema:
-                type: string
-                example: "Erro ao processar solicitação"
+        // Verifica o conteúdo dos logs
+        verify(LOGGER, atLeastOnce()).infof(anyString(), any());
+        
+        // Verifica que o log contém o IP, nome do método e a data/hora de início
+        String logOutput = logCaptor.getAllValues().toString();
+        assertTrue(logOutput.contains("127.0.0.1"));
+        assertTrue(logOutput.contains("TestService/TestMethod"));
+        assertTrue(logOutput.contains(startTime.toString()));
 
+        // Captura o horário de término e calcula o tempo de processamento em milissegundos
+        Instant endTime = Instant.now();
+        long processingTimeMillis = Duration.between(startTime, endTime).toMillis();
+        System.out.println("Processing time: " + processingTimeMillis + " ms");
 
-
-=======
-<dependencies>
-    <!-- Quarkus RESTEasy Reactive Client -->
-    <dependency>
-        <groupId>io.quarkus</groupId>
-        <artifactId>quarkus-rest-client-reactive</artifactId>
-    </dependency>
-
-    <!-- Quarkus JSON-B for JSON processing -->
-    <dependency>
-        <groupId>io.quarkus</groupId>
-        <artifactId>quarkus-resteasy-reactive-jsonb</artifactId>
-    </dependency>
-</dependencies>
-
-
-import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
-import javax.ws.rs.POST;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.core.Response;
-
-@RegisterRestClient(configKey = "cognito-api")
-public interface CognitoClient {
-
-    @POST
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @javax.ws.rs.Path("/oauth2/token")
-    Response authenticate(
-        @FormParam("grant_type") String grantType,
-        @FormParam("client_id") String clientId,
-        @FormParam("client_secret") String clientSecret,
-        @FormParam("username") String username,
-        @FormParam("password") String password
-    );
-}
-
-
-cognito-api/mp-rest/url=https://<seu-pool-id>.auth.<regiao>.amazonaws.com
-
-
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
-import javax.ws.rs.core.Response;
-
-@ApplicationScoped
-public class CognitoAuthService {
-
-    @Inject
-    @RestClient
-    CognitoClient cognitoClient;
-
-    public String authenticateUser(String username, String password) {
-        // Configurações do cliente Cognito
-        String clientId = "seu-client-id";
-        String clientSecret = "seu-client-secret";
-        String grantType = "password";
-
-        // Chamar o cliente REST para autenticar o usuário
-        Response response = cognitoClient.authenticate(grantType, clientId, clientSecret, username, password);
-
-        if (response.getStatus() == 200) {
-            // Se a resposta for 200 OK, podemos retornar os tokens
-            return response.readEntity(String.class);
-        } else {
-            // Em caso de erro, retornar a mensagem de erro
-            return "Autenticação falhou: " + response.getStatusInfo().getReasonPhrase();
-        }
+        // Verifica se o tempo de execução foi razoável (por exemplo, menor que 1 segundo para o mock)
+        assertTrue(processingTimeMillis < 1000); // Supondo que o tempo de execução do mock é menor que 1 segundo
     }
 }
 
 
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.inject.Inject;
 
-@Path("/auth")
-public class AuthResource {
 
-    @Inject
-    CognitoAuthService authService;
 
-    @POST
-    @Path("/login")
-    @Produces(MediaType.APPLICATION_JSON)
-    public String login(@FormParam("username") String username, @FormParam("password") String password) {
-        return authService.authenticateUser(username, password);
+
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import static org.mockito.Mockito.*;
+
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerResponseContext;
+import java.io.IOException;
+
+public class LogInterceptorConfigTest {
+
+    @Mock
+    private ContainerRequestContext mockRequestContext;
+
+    @Mock
+    private ContainerResponseContext mockResponseContext;
+
+    @InjectMocks
+    private LogInterceptorConfig logInterceptorConfig;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    public void testRequestLogging() {
+        // Aqui você pode simular uma requisição e verificar se o log ocorre conforme esperado
+        when(mockRequestContext.getEntity()).thenReturn("Sample request body");
+
+        logInterceptorConfig.filter(mockRequestContext, mockResponseContext);
+
+        // Verifique se o log foi chamado com o conteúdo correto (pode variar com base na implementação)
+        verify(log, times(1)).debug("Request: \n [Sample request body]");
+    }
+
+    @Test
+    public void testResponseLogging() throws IOException {
+        // Simule uma resposta com um corpo específico
+        when(mockResponseContext.hasEntity()).thenReturn(true);
+        when(mockResponseContext.getEntity()).thenReturn("Sample response body");
+
+        logInterceptorConfig.filter(mockRequestContext, mockResponseContext);
+
+        // Verifique se o log foi chamado para a resposta
+        verify(log, times(1)).debug("Response: \n [Sample response body]");
     }
 }
 
 
-myapp.cognito.client-id=meu-client-id
-myapp.cognito.client-secret=meu-client-secret
-myapp.cognito.region=us-east-1
 
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import javax.enterprise.context.ApplicationScoped;
 
-@ApplicationScoped
-public class CognitoConfig {
 
-    // Injetar o valor de 'myapp.cognito.client-id'
-    @ConfigProperty(name = "myapp.cognito.client-id")
-    String clientId;
 
-    // Injetar o valor de 'myapp.cognito.client-secret'
-    @ConfigProperty(name = "myapp.cognito.client-secret")
-    String clientSecret;
 
-    // Injetar o valor de 'myapp.cognito.region' com valor padrão 'us-east-1'
-    @ConfigProperty(name = "myapp.cognito.region", defaultValue = "us-east-1")
-    String region;
 
-    public void printConfig() {
-        System.out.println("Client ID: " + clientId);
-        System.out.println("Client Secret: " + clientSecret);
-        System.out.println("Region: " + region);
-    }
 
-    // Métodos adicionais que utilizam essas propriedades...
-}
-public String getClientId() {
-        String clientId = ConfigProvider.getConfig().getValue("myapp.cognito.client-id", String.class);
-        return clientId;
-    }
->>>>>>> 1974f9d2abbf31c6c02575bb3f0a90cd121d86b0
+
+
+
+

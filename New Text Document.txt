@@ -1,136 +1,165 @@
-import io.quarkus.test.junit.QuarkusTest;
-import io.grpc.*;
-import org.jboss.logging.Logger;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-import java.time.Duration;
-import java.time.Instant;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.*;
-
-@QuarkusTest
-@ExtendWith(MockitoExtension.class)
-public class GrpcInterceptorTest {
-
-    @InjectMocks
-    GrpcInterceptor grpcInterceptor;
-
-    @Mock
-    ServerCall<String, String> serverCall;
-
-    @Mock
-    Metadata metadata;
-
-    @Mock
-    ServerCallHandler<String, String> serverCallHandler;
-
-    @Mock
-    Logger LOGGER;
-
-    @Test
-    public void testInterceptorLogsRequestAndResponse() {
-        // Configura mocks
-        when(serverCall.getMethodDescriptor()).thenReturn(MethodDescriptor.newBuilder()
-                .setFullMethodName("TestService/TestMethod")
-                .setType(MethodDescriptor.MethodType.UNARY)
-                .build());
-        when(serverCall.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)).thenReturn("127.0.0.1");
-
-        ArgumentCaptor<String> logCaptor = ArgumentCaptor.forClass(String.class);
-        doNothing().when(LOGGER).infof(logCaptor.capture(), any());
-
-        // Captura o horário inicial para medir o tempo de execução
-        Instant startTime = Instant.now();
-
-        // Executa o interceptor
-        grpcInterceptor.interceptCall(serverCall, metadata, serverCallHandler);
-
-        // Verifica o conteúdo dos logs
-        verify(LOGGER, atLeastOnce()).infof(anyString(), any());
-        
-        // Verifica que o log contém o IP, nome do método e a data/hora de início
-        String logOutput = logCaptor.getAllValues().toString();
-        assertTrue(logOutput.contains("127.0.0.1"));
-        assertTrue(logOutput.contains("TestService/TestMethod"));
-        assertTrue(logOutput.contains(startTime.toString()));
-
-        // Captura o horário de término e calcula o tempo de processamento em milissegundos
-        Instant endTime = Instant.now();
-        long processingTimeMillis = Duration.between(startTime, endTime).toMillis();
-        System.out.println("Processing time: " + processingTimeMillis + " ms");
-
-        // Verifica se o tempo de execução foi razoável (por exemplo, menor que 1 segundo para o mock)
-        assertTrue(processingTimeMillis < 1000); // Supondo que o tempo de execução do mock é menor que 1 segundo
-    }
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.5">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Performance Test" enabled="true">
+      <stringProp name="TestPlan.comments">Teste de performance com inserção, pausa e chamada GetAll</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+    </TestPlan>
+    <hashTree>
+      <!-- Configuração JDBC -->
+      <JDBCDataSource guiclass="TestBeanGUI" testclass="JDBCDataSource" testname="Conexão JDBC" enabled="true">
+        <stringProp name="dataSource">banco_teste</stringProp>
+        <stringProp name="driver">org.postgresql.Driver</stringProp>
+        <stringProp name="url">jdbc:postgresql://localhost:5432/seubanco</stringProp>
+        <stringProp name="username">seuusuario</stringProp>
+        <stringProp name="password">suasenha</stringProp>
+      </JDBCDataSource>
+      
+      <!-- Grupo de Threads para Inserção de Dados -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Inserção de Dados" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Controlador de Iteração" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <intProp name="LoopController.loops">1</intProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <!-- Loop para Inserir 10 Registros -->
+        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop de Inserção" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">10</stringProp>
+        </LoopController>
+        <hashTree>
+          <!-- Inserção no Banco -->
+          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Inserir Dados" enabled="true">
+            <stringProp name="dataSource">banco_teste</stringProp>
+            <stringProp name="queryType">Update Statement</stringProp>
+            <stringProp name="query">
+INSERT INTO sua_tabela (nome, email) 
+VALUES (
+  CONCAT('Usuario_', floor(random()*1000)), 
+  CONCAT('email_', floor(random()*1000), '@teste.com')
+)
+            </stringProp>
+          </JDBCSampler>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      
+      <!-- Pausa de 2 segundos -->
+      <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Pausa de 2 Segundos" enabled="true">
+        <stringProp name="ConstantTimer.delay">2000</stringProp>
+      </ConstantTimer>
+      
+      <!-- Grupo de Threads para Teste de Performance da API -->
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Teste GetAll" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Controlador de Iteração" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <intProp name="LoopController.loops">1</intProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">50</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <!-- Chamada HTTP para endpoint GetAll -->
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GetAll Endpoint" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variáveis Definidas pelo Usuário" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">localhost</stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">/seu-endpoint/getAll</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <!-- BeanShell Post Processor para verificação -->
+          <BeanShellPostProcessor guiclass="TestBeanGUI" testclass="BeanShellPostProcessor" testname="Verificação de Performance" enabled="true">
+            <stringProp name="script">
+// Calcula o tempo médio de resposta
+long[] responseTimes = new long[prev.getSubResults().length];
+for (int i = 0; i < prev.getSubResults().length; i++) {
+    responseTimes[i] = prev.getSubResults()[i].getTime();
 }
 
+// Calcula média
+long mediaTempoResposta = 0;
+for (long tempo : responseTimes) {
+    mediaTempoResposta += tempo;
+}
+mediaTempoResposta = mediaTempoResposta / responseTimes.length;
 
+// Verifica se passou
+if (mediaTempoResposta <= 50) {
+    log.info("✅ TESTE PASSOU: Média de tempo de resposta = " + mediaTempoResposta + "ms");
+} else {
+    log.error("❌ TESTE FALHOU: Média de tempo de resposta = " + mediaTempoResposta + "ms (Limite: 50ms)");
+    prev.setSuccessful(false);
+}
+            </stringProp>
+          </BeanShellPostProcessor>
+        </hashTree>
+      </hashTree>
+      
+      <!-- Listeners -->
+      <!-- Relatório Agregado -->
+      <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Relatório Agregado" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <meanTime>true</meanTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      
+      <!-- Listener para Ver Resultados Completos -->
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="Ver Resultados" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+      </ResultCollector>
+      
+      <!-- BeanShell Listener para Verificação Final -->
+      <BeanShellListener guiclass="BeanShellListenerGui" testclass="BeanShellListener" testname="Verificação Final de Performance" enabled="true">
+        <stringProp name="script">
+// Calcula a média de tempo de resposta
+long totalResponseTime = 0;
+int sampleCount = 0;
 
-
-
-
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import static org.mockito.Mockito.*;
-
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerResponseContext;
-import java.io.IOException;
-
-public class LogInterceptorConfigTest {
-
-    @Mock
-    private ContainerRequestContext mockRequestContext;
-
-    @Mock
-    private ContainerResponseContext mockResponseContext;
-
-    @InjectMocks
-    private LogInterceptorConfig logInterceptorConfig;
-
-    @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-
-    @Test
-    public void testRequestLogging() {
-        // Aqui você pode simular uma requisição e verificar se o log ocorre conforme esperado
-        when(mockRequestContext.getEntity()).thenReturn("Sample request body");
-
-        logInterceptorConfig.filter(mockRequestContext, mockResponseContext);
-
-        // Verifique se o log foi chamado com o conteúdo correto (pode variar com base na implementação)
-        verify(log, times(1)).debug("Request: \n [Sample request body]");
-    }
-
-    @Test
-    public void testResponseLogging() throws IOException {
-        // Simule uma resposta com um corpo específico
-        when(mockResponseContext.hasEntity()).thenReturn(true);
-        when(mockResponseContext.getEntity()).thenReturn("Sample response body");
-
-        logInterceptorConfig.filter(mockRequestContext, mockResponseContext);
-
-        // Verifique se o log foi chamado para a resposta
-        verify(log, times(1)).debug("Response: \n [Sample response body]");
-    }
+// Itera sobre todas as amostras
+for (SampleResult result : ctx.getCurrentSampler().getSampleResult().getSubResults()) {
+    totalResponseTime += result.getTime();
+    sampleCount++;
 }
 
+// Calcula média
+long mediaTempoResposta = (sampleCount > 0) ? (totalResponseTime / sampleCount) : 0;
 
-
-
-
+// Lógica de verificação
+if (mediaTempoResposta <= 50) {
+    log.info("✅ TESTE PASSOU: Média de tempo de resposta = " + mediaTempoResposta + "ms");
+    System.out.println("✅ PASSOU: Média de " + mediaTempoResposta + "ms");
+} else {
+    log.error("❌ TESTE FALHOU: Média de tempo de resposta = " + mediaTempoResposta + "ms (Limite: 50ms)");
+    System.out.println("❌ FALHOU: Média de " + mediaTempoResposta + "ms");
+}
+        </stringProp>
+      </BeanShellListener>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
 
 
 

@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.5">
+<jmeterTestPlan version="1.2" properties="5.6" jmeter="5.6">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Performance Test" enabled="true">
       <stringProp name="TestPlan.comments">Teste de performance com inserção, pausa e chamada GetAll</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <stringProp name="TestPlan.user_define_classpath"></stringProp>
     </TestPlan>
     <hashTree>
       <!-- Configuração JDBC -->
@@ -14,6 +15,10 @@
         <stringProp name="url">jdbc:postgresql://localhost:5432/seubanco</stringProp>
         <stringProp name="username">seuusuario</stringProp>
         <stringProp name="password">suasenha</stringProp>
+        <stringProp name="pool">10</stringProp>
+        <stringProp name="timeout">10000</stringProp>
+        <stringProp name="connectionAge">5000</stringProp>
+        <stringProp name="keepAlive">true</stringProp>
       </JDBCDataSource>
       
       <!-- Grupo de Threads para Inserção de Dados -->
@@ -25,6 +30,10 @@
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.delayedStart">false</boolProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
         <!-- Loop para Inserir 10 Registros -->
@@ -44,6 +53,8 @@ VALUES (
   CONCAT('email_', floor(random()*1000), '@teste.com')
 )
             </stringProp>
+            <stringProp name="variable"></stringProp>
+            <stringProp name="variableNames"></stringProp>
           </JDBCSampler>
           <hashTree/>
         </hashTree>
@@ -63,6 +74,10 @@ VALUES (
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">50</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.delayedStart">false</boolProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
         <!-- Chamada HTTP para endpoint GetAll -->
@@ -76,6 +91,13 @@ VALUES (
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
           <stringProp name="HTTPSampler.path">/seu-endpoint/getAll</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
           <!-- BeanShell Post Processor para verificação -->
@@ -121,6 +143,7 @@ if (mediaTempoResposta <= 50) {
             <code>true</code>
             <message>true</message>
             <meanTime>true</meanTime>
+            <responseTime>true</responseTime>
           </value>
         </objProp>
         <stringProp name="filename"></stringProp>
@@ -160,12 +183,3 @@ if (mediaTempoResposta <= 50) {
     </hashTree>
   </hashTree>
 </jmeterTestPlan>
-
-
-
-
-
-
-
-
-

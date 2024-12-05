@@ -8,7 +8,6 @@
       <stringProp name="TestPlan.user_define_classpath"></stringProp>
     </TestPlan>
     <hashTree>
-      <!-- Configuração JDBC -->
       <JDBCDataSource guiclass="TestBeanGUI" testclass="JDBCDataSource" testname="Conexão JDBC" enabled="true">
         <stringProp name="dataSource">banco_teste</stringProp>
         <stringProp name="driver">org.postgresql.Driver</stringProp>
@@ -21,7 +20,6 @@
         <stringProp name="keepAlive">true</stringProp>
       </JDBCDataSource>
       
-      <!-- Grupo de Threads para Inserção de Dados -->
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Inserção de Dados" enabled="true">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Controlador de Iteração" enabled="true">
@@ -36,13 +34,11 @@
         <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
-        <!-- Loop para Inserir 10 Registros -->
         <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop de Inserção" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <stringProp name="LoopController.loops">10</stringProp>
         </LoopController>
         <hashTree>
-          <!-- Inserção no Banco -->
           <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Inserir Dados" enabled="true">
             <stringProp name="dataSource">banco_teste</stringProp>
             <stringProp name="queryType">Update Statement</stringProp>
@@ -56,16 +52,13 @@ VALUES (
             <stringProp name="variable"></stringProp>
             <stringProp name="variableNames"></stringProp>
           </JDBCSampler>
-          <hashTree/>
         </hashTree>
       </hashTree>
       
-      <!-- Pausa de 2 segundos -->
       <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Pausa de 2 Segundos" enabled="true">
         <stringProp name="ConstantTimer.delay">2000</stringProp>
       </ConstantTimer>
       
-      <!-- Grupo de Threads para Teste de Performance da API -->
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Teste GetAll" enabled="true">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Controlador de Iteração" enabled="true">
@@ -80,7 +73,6 @@ VALUES (
         <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
-        <!-- Chamada HTTP para endpoint GetAll -->
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GetAll Endpoint" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variáveis Definidas pelo Usuário" enabled="true">
             <collectionProp name="Arguments.arguments"/>
@@ -100,27 +92,24 @@ VALUES (
           <stringProp name="HTTPSampler.response_timeout"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <!-- BeanShell Post Processor para verificação -->
           <BeanShellPostProcessor guiclass="TestBeanGUI" testclass="BeanShellPostProcessor" testname="Verificação de Performance" enabled="true">
             <stringProp name="script">
-// Calcula o tempo médio de resposta
+// Calcula a média de tempo de resposta
 long[] responseTimes = new long[prev.getSubResults().length];
 for (int i = 0; i < prev.getSubResults().length; i++) {
     responseTimes[i] = prev.getSubResults()[i].getTime();
 }
 
-// Calcula média
 long mediaTempoResposta = 0;
 for (long tempo : responseTimes) {
     mediaTempoResposta += tempo;
 }
 mediaTempoResposta = mediaTempoResposta / responseTimes.length;
 
-// Verifica se passou
 if (mediaTempoResposta <= 50) {
-    log.info("✅ TESTE PASSOU: Média de tempo de resposta = " + mediaTempoResposta + "ms");
+    log.info("✅ TESTE PASSOU: Média de " + mediaTempoResposta + "ms");
 } else {
-    log.error("❌ TESTE FALHOU: Média de tempo de resposta = " + mediaTempoResposta + "ms (Limite: 50ms)");
+    log.error("❌ TESTE FALHOU: Média de " + mediaTempoResposta + "ms (Limite: 50ms)");
     prev.setSuccessful(false);
 }
             </stringProp>
@@ -128,8 +117,6 @@ if (mediaTempoResposta <= 50) {
         </hashTree>
       </hashTree>
       
-      <!-- Listeners -->
-      <!-- Relatório Agregado -->
       <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Relatório Agregado" enabled="true">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
@@ -146,36 +133,21 @@ if (mediaTempoResposta <= 50) {
             <responseTime>true</responseTime>
           </value>
         </objProp>
-        <stringProp name="filename"></stringProp>
       </ResultCollector>
       
-      <!-- Listener para Ver Resultados Completos -->
       <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="Ver Resultados" enabled="true">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
       </ResultCollector>
       
-      <!-- BeanShell Listener para Verificação Final -->
       <BeanShellListener guiclass="BeanShellListenerGui" testclass="BeanShellListener" testname="Verificação Final de Performance" enabled="true">
         <stringProp name="script">
-// Calcula a média de tempo de resposta
-long totalResponseTime = 0;
-int sampleCount = 0;
-
-// Itera sobre todas as amostras
-for (SampleResult result : ctx.getCurrentSampler().getSampleResult().getSubResults()) {
-    totalResponseTime += result.getTime();
-    sampleCount++;
-}
-
-// Calcula média
 long mediaTempoResposta = (sampleCount > 0) ? (totalResponseTime / sampleCount) : 0;
 
-// Lógica de verificação
 if (mediaTempoResposta <= 50) {
-    log.info("✅ TESTE PASSOU: Média de tempo de resposta = " + mediaTempoResposta + "ms");
+    log.info("✅ TESTE PASSOU: Média de " + mediaTempoResposta + "ms");
     System.out.println("✅ PASSOU: Média de " + mediaTempoResposta + "ms");
 } else {
-    log.error("❌ TESTE FALHOU: Média de tempo de resposta = " + mediaTempoResposta + "ms (Limite: 50ms)");
+    log.error("❌ TESTE FALHOU: Média de " + mediaTempoResposta + "ms (Limite: 50ms)");
     System.out.println("❌ FALHOU: Média de " + mediaTempoResposta + "ms");
 }
         </stringProp>

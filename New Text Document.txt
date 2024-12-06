@@ -1,10 +1,16 @@
-import org.apache.jmeter.protocol.http.sampler.HTTPSampleResult;
+String metrics = prev.getResponseDataAsString();
+String responseTimeMetric = "";
+for (String line : metrics.split("\n")) {
+    if (line.contains("http_server_requests_seconds_mean{method=\"GET\",uri=\"/customers\"")) {
+        responseTimeMetric = line.split()[1];
+        break;
+    }
+}
+vars.put("meanResponseTime", responseTimeMetric);
 
-// Obter o tempo de resposta médio do último resultado
-float responseTime = prev.getEndTime() - prev.getStartTime();
-
-// Validar se tempo é superior a 50ms
-if (responseTime > 50) {
+// Conversão de segundos para milissegundos e comparação
+float responseTimeMs = Float.parseFloat(responseTimeMetric) * 1000;
+if (responseTimeMs > 50) {
     Failure = true;
-    FailureMessage = "Tempo médio de resposta (" + responseTime + "ms) excedeu 50ms";
+    FailureMessage = "Response time " + responseTimeMs + "ms exceeds 50ms";
 }

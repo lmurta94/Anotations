@@ -1,19 +1,35 @@
-
-// Obtém o corpo da resposta
+// Obtém o corpo da resposta do Prometheus
 def responseBody = prev.getResponseDataAsString()
 
-// Define uma regex para capturar o valor
-// Ajuste a regex conforme necessário
-def matcher = (responseBody =~ /http_request_duration_seconds.* (\d+\.\d+)/)
+// Define regex para extrair `sum` e `count` (ajuste o filtro se necessário)
+def sumMatcher = (responseBody =~ /http_server_requests_seconds_sum\{.*uri="\/customers\/filter".*\} (\d+\.\d+)/)
+def countMatcher = (responseBody =~ /http_server_requests_seconds_count\{.*uri="\/customers\/filter".*\} (\d+\.\d+)/)
 
-// Se encontrar um valor, armazena na variável JMeter
-if (matcher.find()) {
-    def responseTime = matcher.group(1).toDouble() * 1000 // Converte para ms
-    vars.put("responseTime", responseTime.toString())
+// Variáveis para armazenar os valores extraídos
+def sum = 0.0
+def count = 0.0
+
+// Extrair os valores, se encontrados
+if (sumMatcher.find()) {
+    sum = sumMatcher.group(1).toDouble()
 } else {
-    log.error("Não foi possível extrair o tempo de resposta do Prometheus.")
+    log.error("Não foi possível encontrar o valor de 'sum'.")
 }
 
+if (countMatcher.find()) {
+    count = countMatcher.group(1).toDouble()
+} else {
+    log.error("Não foi possível encontrar o valor de 'count'.")
+}
+
+// Calcular a média (em ms, multiplicando por 1000) e armazenar na variável JMeter
+if (count > 0) {
+    def avgResponseTime = (sum / count) * 1000 // Converte para milissegundos
+    vars.put("responseTime", avgResponseTime.toString()) // Armazena o valor na variável 'responseTime'
+    log.info("Tempo médio de resposta calculado: ${avgResponseTime}ms")
+} else {
+    log.error("O valor de 'count' é zero. Não é possível calcular a média.")
+}
 
 // Obtém o valor extraído
 def avgResponseTime = vars.get("responseTime") as Double

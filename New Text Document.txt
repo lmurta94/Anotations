@@ -1,87 +1,108 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jmeterTestPlan version="1.2" properties="5.6" jmeter="5.6">
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Performance Test" enabled="true">
-      <stringProp name="TestPlan.comments">Teste de performance com inserção, pausa e chamada GetAll</stringProp>
+      <stringProp name="TestPlan.comments">Teste de performance com limpeza, inserção, pausa e chamada GetAll</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
       <stringProp name="TestPlan.user_define_classpath"></stringProp>
     </TestPlan>
     <hashTree>
-      <JDBCDataSource guiclass="TestBeanGUI" testclass="JDBCDataSource" testname="Conexão JDBC" enabled="true">
-        <stringProp name="dataSource">banco_teste</stringProp>
+      <JDBCDataSource guiclass="TestBeanGUI" testclass="JDBCDataSource" testname="Database Connection" enabled="true">
+        <stringProp name="dataSource">database_test</stringProp>
         <stringProp name="driver">org.postgresql.Driver</stringProp>
-        <stringProp name="url">jdbc:postgresql://localhost:5432/seubanco</stringProp>
-        <stringProp name="username">seuusuario</stringProp>
-        <stringProp name="password">suasenha</stringProp>
-        <stringProp name="pool">10</stringProp>
-        <stringProp name="timeout">10000</stringProp>
-        <stringProp name="connectionAge">5000</stringProp>
-        <stringProp name="keepAlive">true</stringProp>
+        <stringProp name="url">jdbc:postgresql://localhost:5432/postgres</stringProp>
+        <stringProp name="username">postgres</stringProp>
+        <stringProp name="password">postgres</stringProp>
+        <stringProp name="pool_max_wait_time">60000</stringProp>
+        <intProp name="max_number_of_connections">20</intProp>
       </JDBCDataSource>
+      <hashTree/>
       
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Inserção de Dados" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Database Cleanup" enabled="true">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Controlador de Iteração" enabled="true">
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <intProp name="LoopController.loops">1</intProp>
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
-        <boolProp name="ThreadGroup.delayedStart">false</boolProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
         <stringProp name="ThreadGroup.duration"></stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
-        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop de Inserção" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">10</stringProp>
-        </LoopController>
-        <hashTree>
-          <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Inserir Dados" enabled="true">
-            <stringProp name="dataSource">banco_teste</stringProp>
-            <stringProp name="queryType">Update Statement</stringProp>
-            <stringProp name="query">
-INSERT INTO sua_tabela (nome, email) 
-VALUES (
-  CONCAT('Usuario_', floor(random()*1000)), 
-  CONCAT('email_', floor(random()*1000), '@teste.com')
-)
-            </stringProp>
-            <stringProp name="variable"></stringProp>
-            <stringProp name="variableNames"></stringProp>
-          </JDBCSampler>
-        </hashTree>
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Clear Users Table" enabled="true">
+          <stringProp name="dataSource">database_test</stringProp>
+          <stringProp name="queryType">Update Statement</stringProp>
+          <stringProp name="query">
+            TRUNCATE TABLE users RESTART IDENTITY
+          </stringProp>
+        </JDBCSampler>
+        <hashTree/>
       </hashTree>
       
-      <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Pausa de 2 Segundos" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Data Insertion" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <intProp name="LoopController.loops">-1</intProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Insert Data" enabled="true">
+          <stringProp name="dataSource">database_test</stringProp>
+          <stringProp name="queryType">Update Statement</stringProp>
+          <stringProp name="query">
+            INSERT INTO users (name, email) 
+            VALUES (
+              CONCAT('User_', floor(random()*1000)), 
+              CONCAT('email_', floor(random()*1000), '@test.com')
+            )
+          </stringProp>
+        </JDBCSampler>
+        <hashTree/>
+      </hashTree>
+      
+      <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Pause 2 Seconds" enabled="true">
         <stringProp name="ConstantTimer.delay">2000</stringProp>
       </ConstantTimer>
+      <hashTree/>
       
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Teste GetAll" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="GetAll Test" enabled="true">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Controlador de Iteração" enabled="true">
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
-          <intProp name="LoopController.loops">1</intProp>
+          <intProp name="LoopController.loops">-1</intProp>
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">50</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
-        <boolProp name="ThreadGroup.delayedStart">false</boolProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
         <stringProp name="ThreadGroup.duration"></stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GetAll Endpoint" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variáveis Definidas pelo Usuário" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
           <stringProp name="HTTPSampler.domain">localhost</stringProp>
           <stringProp name="HTTPSampler.port">8080</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">/seu-endpoint/getAll</stringProp>
+          <stringProp name="HTTPSampler.path">/users</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -92,32 +113,34 @@ VALUES (
           <stringProp name="HTTPSampler.response_timeout"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <BeanShellPostProcessor guiclass="TestBeanGUI" testclass="BeanShellPostProcessor" testname="Verificação de Performance" enabled="true">
-            <stringProp name="script">
-// Calcula a média de tempo de resposta
-long[] responseTimes = new long[prev.getSubResults().length];
-for (int i = 0; i < prev.getSubResults().length; i++) {
-    responseTimes[i] = prev.getSubResults()[i].getTime();
-}
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49">1</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">16</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <BeanShellPostProcessor guiclass="TestBeanGUI" testclass="BeanShellPostProcessor" testname="Performance Verification" enabled="true">
+            <stringProp name="script"><![CDATA[
+import org.apache.jmeter.samplers.SampleResult;
 
-long mediaTempoResposta = 0;
-for (long tempo : responseTimes) {
-    mediaTempoResposta += tempo;
-}
-mediaTempoResposta = mediaTempoResposta / responseTimes.length;
+long responseTime = prev.getTime();
 
-if (mediaTempoResposta <= 50) {
-    log.info("✅ TESTE PASSOU: Média de " + mediaTempoResposta + "ms");
+if (responseTime <= 50) {
+    log.info("✅ TEST PASSED: Response time = " + responseTime + "ms");
 } else {
-    log.error("❌ TESTE FALHOU: Média de " + mediaTempoResposta + "ms (Limite: 50ms)");
+    log.error("❌ TEST FAILED: Response time = " + responseTime + "ms (Limit: 50ms)");
     prev.setSuccessful(false);
 }
-            </stringProp>
+            ]]></stringProp>
           </BeanShellPostProcessor>
         </hashTree>
       </hashTree>
       
-      <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Relatório Agregado" enabled="true">
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results" enabled="true">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>
@@ -129,29 +152,29 @@ if (mediaTempoResposta <= 50) {
             <label>true</label>
             <code>true</code>
             <message>true</message>
-            <meanTime>true</meanTime>
-            <responseTime>true</responseTime>
           </value>
         </objProp>
+        <stringProp name="filename"></stringProp>
       </ResultCollector>
+      <hashTree/>
       
-      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="Ver Resultados" enabled="true">
+      <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Aggregate Report" enabled="true">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
       </ResultCollector>
-      
-      <BeanShellListener guiclass="BeanShellListenerGui" testclass="BeanShellListener" testname="Verificação Final de Performance" enabled="true">
-        <stringProp name="script">
-long mediaTempoResposta = (sampleCount > 0) ? (totalResponseTime / sampleCount) : 0;
-
-if (mediaTempoResposta <= 50) {
-    log.info("✅ TESTE PASSOU: Média de " + mediaTempoResposta + "ms");
-    System.out.println("✅ PASSOU: Média de " + mediaTempoResposta + "ms");
-} else {
-    log.error("❌ TESTE FALHOU: Média de " + mediaTempoResposta + "ms (Limite: 50ms)");
-    System.out.println("❌ FALHOU: Média de " + mediaTempoResposta + "ms");
-}
-        </stringProp>
-      </BeanShellListener>
+      <hashTree/>
     </hashTree>
   </hashTree>
 </jmeterTestPlan>

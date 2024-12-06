@@ -1,27 +1,30 @@
-String metrics = prev.getResponseDataAsString();
-String responseTimeMetric = "";
-for (String line : metrics.split("\n")) {
-    if (line.contains("http_server_requests_seconds_mean{method=\"GET\",uri=\"/customers\"")) {
-        responseTimeMetric = line.split()[1];
-        break;
-    }
+
+// Obtém o corpo da resposta
+def responseBody = prev.getResponseDataAsString()
+
+// Define uma regex para capturar o valor
+// Ajuste a regex conforme necessário
+def matcher = (responseBody =~ /http_request_duration_seconds.* (\d+\.\d+)/)
+
+// Se encontrar um valor, armazena na variável JMeter
+if (matcher.find()) {
+    def responseTime = matcher.group(1).toDouble() * 1000 // Converte para ms
+    vars.put("responseTime", responseTime.toString())
+} else {
+    log.error("Não foi possível extrair o tempo de resposta do Prometheus.")
 }
-vars.put("meanResponseTime", responseTimeMetric);
 
-// Conversão de segundos para milissegundos e comparação
-float responseTimeMs = Float.parseFloat(responseTimeMetric) * 1000;
-if (responseTimeMs > 50) {
-    Failure = true;
-    FailureMessage = "Response time " + responseTimeMs + "ms exceeds 50ms";
+
+// Obtém o valor extraído
+def avgResponseTime = vars.get("responseTime") as Double
+
+// Verifica se o valor está disponível
+if (avgResponseTime == null) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage("Não foi possível extrair o tempo médio de resposta.")
+} else if (avgResponseTime > 50) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage("Tempo médio acima do limite: ${avgResponseTime}ms")
+} else {
+    AssertionResult.setFailure(false)
 }
-
-
-
-
-${__groovy(
-  def metrics = prev.getResponseDataAsString();
-  def responseTimeMetric = metrics.findAll { 
-    it.contains('http_server_requests_seconds_mean{method="GET",uri="/customers"')
-  }.first();
-  vars.put("meanResponseTime", responseTimeMetric.split()[1]);
-)}

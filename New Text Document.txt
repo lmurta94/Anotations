@@ -14,3 +14,14 @@ if (responseTimeMs > 50) {
     Failure = true;
     FailureMessage = "Response time " + responseTimeMs + "ms exceeds 50ms";
 }
+
+
+
+
+${__groovy(
+  def metrics = prev.getResponseDataAsString();
+  def responseTimeMetric = metrics.findAll { 
+    it.contains('http_server_requests_seconds_mean{method="GET",uri="/customers"')
+  }.first();
+  vars.put("meanResponseTime", responseTimeMetric.split()[1]);
+)}

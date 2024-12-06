@@ -44,3 +44,20 @@ if (avgResponseTime == null) {
 } else {
     AssertionResult.setFailure(false)
 }
+
+
+
+// Obtém o valor da média calculada
+def avgResponseTime = vars.get("responseTime") as Double
+
+// Verifica se o valor foi calculado e está abaixo de 50ms
+if (avgResponseTime == null) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage("Tempo médio de resposta não foi calculado.")
+} else if (avgResponseTime > 50) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage("Tempo médio de resposta acima do limite: ${avgResponseTime}ms")
+} else {
+    AssertionResult.setFailure(false)
+}
+

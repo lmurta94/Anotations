@@ -61,3 +61,7 @@ if (avgResponseTime == null) {
     AssertionResult.setFailure(false)
 }
 
+
+def sumMatcher = (responseBody =~ /http_server_requests_seconds_sum\{.*method="GET",outcome="SUCCESS",status="200",uri="\/customers\/filter".*\} (\d+\.\d+)/)
+
+def countMatcher = (responseBody =~ /http_server_requests_seconds_count\{.*method="GET",outcome="SUCCESS",status="200",uri="\/customers\/filter".*\} (\d+\.\d+)/)

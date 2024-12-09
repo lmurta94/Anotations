@@ -1,18 +1,20 @@
-import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
+import org.apache.jmeter.threads.JMeterContextService;
 import org.apache.jmeter.samplers.SampleResult;
 
 int maxResponseTime = 50; // ms
-
-SampleResult[] results = ctx.getCurrentSampler().getResults();
 double avgResponseTime = 0;
 
-for(SampleResult result : results) {
-    avgResponseTime += result.getTime();
-}
+SampleResult[] results = JMeterContextService.getJMeterContext().getResults();
 
-avgResponseTime /= results.length;
+if (results != null && results.length > 0) {
+    for(SampleResult result : results) {
+        avgResponseTime += result.getTime();
+    }
 
-if(avgResponseTime > maxResponseTime) {
-    Failure = true;
-    FailureMessage = "Média de tempo de resposta " + avgResponseTime + "ms excedeu 50ms";
+    avgResponseTime /= results.length;
+
+    if(avgResponseTime > maxResponseTime) {
+        Failure = true;
+        FailureMessage = "Média de tempo de resposta " + avgResponseTime + "ms excedeu 50ms";
+    }
 }

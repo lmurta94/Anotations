@@ -1,15 +1,33 @@
-import org.apache.jmeter.samplers.SampleResult;
+// Pega os resultados da requisição
+long responseTime = prev.getTime()  // Tempo de resposta da requisição atual
+long averageTime = 0
 
-int maxResponseTime = 50; // ms
+// Inicializa ou atualiza a variável de tempo médio acumulado
+if (vars.getObject("totalAverage") == null) {
+    vars.putObject("totalAverage", 0.0)
+    vars.putObject("requestCount", 0)
+}
 
-// Recupera o resultado do sampler atual
-SampleResult result = ctx.getPreviousSampler().getResult();
+// Atualiza o tempo total e contagem de requisições
+double totalAverage = vars.getObject("totalAverage")
+int requestCount = vars.getObject("requestCount")
 
-if (result != null) {
-    long responseTime = result.getTime();
+totalAverage += responseTime
+requestCount += 1
 
-    if (responseTime > maxResponseTime) {
-        Failure = true;
-        FailureMessage = "Tempo de resposta " + responseTime + "ms excedeu 50ms";
-    }
+vars.putObject("totalAverage", totalAverage)
+vars.putObject("requestCount", requestCount)
+
+// Calcula o tempo médio acumulado
+averageTime = totalAverage / requestCount
+
+// Loga o tempo médio para referência
+log.info("Média acumulada até agora: " + averageTime + " ms")
+
+// Condição de asserção: média maior que 50 ms
+if (averageTime > 50) {
+    AssertionResult.setFailure(true)
+    AssertionResult.setFailureMessage("Falha: Média do tempo de resposta (" + averageTime + " ms) excede 50 ms")
+} else {
+    AssertionResult.setFailure(false)
 }

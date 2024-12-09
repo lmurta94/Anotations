@@ -1,7 +1,15 @@
-int maxResponseTime = 50; // ms
-double avgResponseTime = ctx.getPreviousSampler().getTime();
+import org.apache.jmeter.samplers.SampleResult;
 
-if(avgResponseTime > maxResponseTime) {
-    Failure = true;
-    FailureMessage = "Tempo de resposta " + avgResponseTime + "ms excedeu 50ms";
+int maxResponseTime = 50; // ms
+
+// Recupera o resultado do sampler atual
+SampleResult result = ctx.getPreviousSampler().getResult();
+
+if (result != null) {
+    long responseTime = result.getTime();
+
+    if (responseTime > maxResponseTime) {
+        Failure = true;
+        FailureMessage = "Tempo de resposta " + responseTime + "ms excedeu 50ms";
+    }
 }

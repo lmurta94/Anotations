@@ -1,33 +1,33 @@
-// Pega os resultados da requisição
-long responseTime = prev.getTime()  // Tempo de resposta da requisição atual
-long averageTime = 0
 
-// Inicializa ou atualiza a variável de tempo médio acumulado
-if (vars.getObject("totalAverage") == null) {
-    vars.putObject("totalAverage", 0.0)
-    vars.putObject("requestCount", 0)
-}
+// Obter o total esperado de iterações (threads x loops)
+int totalIterations = ctx.getThreadGroup().getNumThreads() * ctx.getThreadGroup().getSamplerController().getLoops()
 
-// Atualiza o tempo total e contagem de requisições
-double totalAverage = vars.getObject("totalAverage")
-int requestCount = vars.getObject("requestCount")
+// Incrementar o contador global após cada execução
+int completedIterations = props.get("completedIterations") != null ? props.get("completedIterations") as int : 0
+completedIterations += 1
+props.put("completedIterations", completedIterations)
 
-totalAverage += responseTime
-requestCount += 1
+log.info("Iterações concluídas: ${completedIterations} de ${totalIterations}")
 
-vars.putObject("totalAverage", totalAverage)
-vars.putObject("requestCount", requestCount)
 
-// Calcula o tempo médio acumulado
-averageTime = totalAverage / requestCount
 
-// Loga o tempo médio para referência
-log.info("Média acumulada até agora: " + averageTime + " ms")
 
-// Condição de asserção: média maior que 50 ms
-if (averageTime > 50) {
-    AssertionResult.setFailure(true)
-    AssertionResult.setFailureMessage("Falha: Média do tempo de resposta (" + averageTime + " ms) excede 50 ms")
+// Obter o total esperado de iterações
+int totalIterations = ctx.getThreadGroup().getNumThreads() * ctx.getThreadGroup().getSamplerController().getLoops()
+
+// Verificar o número de iterações concluídas
+int completedIterations = props.get("completedIterations") as int
+
+if (completedIterations == totalIterations) {
+    // Realizar validação após todas as execuções
+    long averageTime = props.get("averageTime") as long ?: 0
+    if (averageTime > 50) {
+        prev.setSuccessful(false)
+        prev.setResponseMessage("Falha: Tempo médio acima de 50ms após todas as iterações.")
+    } else {
+        prev.setSuccessful(true)
+    }
 } else {
-    AssertionResult.setFailure(false)
+    // Ignorar validação até que todas as execuções sejam concluídas
+    log.info("Ainda aguardando mais iterações para validar.")
 }
